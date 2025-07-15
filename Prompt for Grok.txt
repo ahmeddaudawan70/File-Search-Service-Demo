@@ -1,0 +1,110 @@
+Create a FastAPI-based Python project called "File Search Service" that retrieves files from a specified Google Drive folder, extracts text from CSV, TXT, PDF, and PNG files, indexes them in Elasticsearch, and provides a search API and CLI to query files by content or name. The project must follow modular and object-oriented programming (OOP) principles, with clear separation of concerns. Use specific libraries as outlined below, and make the Google Drive folder ID configurable in a settings file. Provide a README.md with setup, running, and testing instructions, including curl and CLI commands, and address zsh globbing issues for curl.
+
+Requirements:
+
+1. Functionality:
+   - Retrieve files (CSV, TXT, PDF, PNG) from a Google Drive folder using the Google Drive API.
+   - Extract text from:
+     - CSV and TXT: Direct text extraction.
+     - PDF: Use pdfplumber with Tesseract OCR fallback for image-based PDFs.
+     - PNG: Use Tesseract OCR.
+   - Index file metadata (name, URL) and extracted text in Elasticsearch.
+   - Provide a /search API endpoint and a CLI to search files by content or name (case-insensitive, fuzzy matching).
+   - Use OAuth 2.0 for Google Drive authentication, storing credentials in token.json.
+
+2. Modular and OOP Design:
+   - Organize code into modules: main.py, cli.py, api/routes.py, services/drive_client.py, services/indexer.py, services/text_extractor.py, config/settings.py.
+   - Use OOP with abstract base classes (ABCs) for services (DriveService, IndexService, TextExtractor) to ensure extensibility and abstraction.
+   - Separate concerns:
+     - DriveClient: Google Drive API interactions.
+     - Indexer: Elasticsearch indexing and searching.
+     - TextExtractor: Text extraction from files.
+     - config/settings.py: Configuration for Google Drive and Elasticsearch.
+   - Use dependency injection where appropriate (e.g., Indexer in api/routes.py).
+
+3. Libraries:
+   - fastapi: For the web server and API.
+   - uvicorn: To run the FastAPI server.
+   - google-auth-oauthlib and google-api-python-client: For Google Drive API access.
+   - elasticsearch: For indexing and searching.
+   - pytesseract and Pillow: For OCR on PNG and image-based PDFs.
+   - pdfplumber: For PDF text extraction.
+   - click: For the CLI.
+   - List these in requirements.txt.
+
+4. Configuration:
+   - Store settings in config/settings.py:
+     - GOOGLE_DRIVE_SCOPES: ['https://www.googleapis.com/auth/drive.readonly'].
+     - CREDENTIALS_FILE: 'credentials.json'.
+     - GOOGLE_DRIVE_FOLDER_ID: Placeholder for the Google Drive folder ID (e.g., 'your_folder_id_here').
+     - ELASTICSEARCH_HOST: 'https://localhost:9200'.
+     - ELASTICSEARCH_USERNAME: 'elastic'.
+     - ELASTICSEARCH_PASSWORD: 'ib_s=h4hmOiT_y-ux*P3'.
+   - Use verify_certs=False for Elasticsearch (local testing).
+
+5. Project Structure:
+   - main.py: FastAPI app, initializes services, indexes files on startup.
+   - cli.py: CLI using click to search indexed files.
+   - api/routes.py: Defines /search endpoint with query parameter q.
+   - services/drive_client.py: Implements DriveClient (inherits DriveService) for file retrieval and download.
+   - services/indexer.py: Implements Indexer (inherits IndexService) for Elasticsearch operations.
+   - services/text_extractor.py: Implements TesseractTextExtractor (inherits TextExtractor) for text extraction.
+   - config/settings.py: Configuration variables.
+   - requirements.txt: List of dependencies.
+   - credentials.json: Google Drive API credentials (not in repo).
+   - token.json: Generated OAuth token (not in repo).
+
+6. Implementation Details:
+   - Google Drive:
+     - Authenticate using OAuth, save token.json.
+     - Fetch files with MIME types text/csv, text/plain, application/pdf, image/png from the configured folder ID.
+     - Download file content as bytes.
+   - Text Extraction:
+     - CSV/TXT: Decode bytes with utf-8 (ignore errors).
+     - PDF: Use pdfplumber; fall back to Tesseract OCR if no text is extracted (for image-based PDFs).
+     - PNG: Use Pillow and pytesseract for OCR.
+   - Elasticsearch:
+     - Index files in 'files' index with fields: name, content, url.
+     - Use multi_match query with fuzziness: 'AUTO' for searches.
+   - API:
+     - /search?q=<query> endpoint returns List[Dict] with name and url.
+   - CLI:
+     - Command: python cli.py "<query>".
+     - Output: File name and URL per line.
+
+7. Testing:
+   - curl Commands:
+     curl "http://0.0.0.0:8000/search?q=Samsung"
+     curl "http://localhost:8000/search?q=Iphone"
+     curl "http://localhost:8000/search?q=*"
+     - Quote URLs to avoid zsh globbing on ?.
+   - CLI Commands:
+     python cli.py "Samsung"
+     python cli.py "Iphone"
+   - Swagger UI: Accessible at http://localhost:8000/docs.
+   - Elasticsearch Check:
+     curl -u elastic:ib_s=h4hmOiT_y-ux*P3 https://localhost:9200/files/_search?pretty --insecure
+
+8. README.md:
+   - Include sections: Features, Prerequisites, Dependencies, Project Structure, Setup Instructions, Running the Application, Testing (with curl and CLI examples), Troubleshooting.
+   - Explain setting GOOGLE_DRIVE_FOLDER_ID in config/settings.py.
+   - List dependencies and installation commands.
+   - Address zsh globbing fix for curl.
+   - Provide troubleshooting for authentication, Elasticsearch, and PDF extraction (including test_pdf_extraction.py for PDFs).
+
+9. Setup and Running:
+   - Install Python 3.8+, Elasticsearch (via Homebrew on macOS), and Tesseract.
+   - Set up virtual environment, install dependencies.
+   - Configure config/settings.py with folder ID and Elasticsearch credentials.
+   - Run python main.py to start the server.
+   - Test with curl and CLI commands.
+
+10. Notes:
+    - Use verify_certs=False for local Elasticsearch, noting InsecureRequestWarning.
+    - Ensure PDF and PNG text extraction works, with OCR fallback for image-based PDFs.
+    - Ignore any @app.on_event("startup") deprecation warnings in main.py.
+
+Deliverables:
+- All source files (main.py, cli.py, api/routes.py, services/drive_client.py, services/indexer.py, services/text_extractor.py, config/settings.py, requirements.txt).
+- README.md with complete instructions.
+- Ensure the project replicates the functionality demonstrated in prior outputs (e.g., indexing 10 files: 1 CSV, 2 TXT, 3 PDF, 4 PNG; search results for q=Samsung).
