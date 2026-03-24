@@ -2,246 +2,214 @@
 
 > This project was built as part of an interview process.
 
-This project is a FastAPI-based application that retrieves files from a specified Google Drive folder, extracts text from supported file types (CSV, TXT, PDF, PNG), indexes them in Elasticsearch, and provides a search API to query the files by content or name. The application supports searching via a REST API (`/search` endpoint) and a command-line interface (CLI).
+A FastAPI service that indexes files from a Google Drive folder into Elasticsearch and exposes a full-text search API and CLI. It supports CSV, TXT, PDF, and PNG files — including OCR for image-based content.
+
+---
 
 ## Features
-- **File Retrieval**: Fetches files (CSV, TXT, PDF, PNG) from a Google Drive folder using the Google Drive API.
-- **Text Extraction**: Extracts text from:
-  - CSV and TXT files (direct text).
-  - PDF files (using `pdfplumber` with Tesseract OCR fallback for image-based PDFs).
-  - PNG files (using Tesseract OCR).
-- **Indexing**: Stores file metadata and extracted text in Elasticsearch for efficient searching.
-- **Search**: Provides a `/search` API endpoint and CLI to query files by content or name.
+
+- Fetches files from a specified Google Drive folder via the Google Drive API (OAuth 2.0)
+- Extracts text from:
+  - **CSV / TXT** — direct UTF-8 decoding
+  - **PDF** — `pdfplumber` for text-based PDFs
+  - **PNG** — Tesseract OCR
+- Indexes file name, content, and Drive URL into Elasticsearch on startup
+- Full-text search across file names and content via a REST API (`/search`) and a CLI (`cli.py`)
+
+---
+
+## Project Structure
+
+```
+File-Search-Service/
+├── main.py                  # FastAPI app entry point, startup indexing
+├── cli.py                   # Command-line search interface
+├── api/
+│   └── routes.py            # /search endpoint
+├── services/
+│   ├── drive_client.py      # Google Drive file listing and download
+│   ├── indexer.py           # Elasticsearch indexing and search
+│   └── text_extractor.py    # Text extraction (PDF, PNG, CSV, TXT)
+├── config/
+│   └── settings.py          # Configuration (reads from environment variables)
+├── requirements.txt
+├── credentials.json         # Google Drive OAuth credentials (not in repo)
+└── token.json               # Generated OAuth token (created at runtime)
+```
+
+---
 
 ## Prerequisites
-Before setting up the project, ensure you have the following:
 
-- **Python**: Version 3.8 or higher.
-- **Google Drive API Credentials**:
-  - Create a project in the [Google Cloud Console](https://console.cloud.google.com/).
-  - Enable the Google Drive API.
-  - Create OAuth 2.0 credentials and download the `credentials.json` file.
-  - Place `credentials.json` in the project root directory.
-- **Elasticsearch**:
-  - Install and run Elasticsearch locally (version 8.x recommended).
-  - Default configuration: `https://localhost:9200` with username `elastic` and password `what you got from the terminal`.
-  - For macOS, install via Homebrew: (Preferably install manually,https://www.youtube.com/watch?v=-_YXiaETaVU&ab_channel=DataHeadGirl)
-    ```bash
-    brew tap elastic/tap
-    brew install elastic/tap/elasticsearch-full
-    elasticsearch
-    ```
-- **Tesseract OCR**:
-  - Install Tesseract for PNG and image-based PDF text extraction.
-  - On macOS:
-    ```bash
-    brew install tesseract
-    ```
-- **Google Drive Folder**:
-  - A Google Drive folder containing files (CSV, TXT, PDF, PNG) to index.
-  - Note the folder ID from the URL (e.g., `1AbCdEfGhIjKlMnOpQrStUv` from `https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUv`).
+### Python
+Version 3.8 or higher.
 
-## Dependencies
-The project requires the following Python packages, listed in `requirements.txt`:
+### Google Drive API Credentials
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a project and enable the **Google Drive API**
+3. Create **OAuth 2.0 credentials** and download `credentials.json`
+4. Place `credentials.json` in the project root
 
-```
-fastapi
-uvicorn
-google-auth-oauthlib
-google-api-python-client
+### Elasticsearch
+Version 8.x recommended. Install on macOS:
+```bash
+brew tap elastic/tap
+brew install elastic/tap/elasticsearch-full
 elasticsearch
-pytesseract
-Pillow
-pdfplumber
-click
+```
+> Preferably install manually — see [this guide](https://www.youtube.com/watch?v=-_YXiaETaVU&ab_channel=DataHeadGirl).
+
+### Tesseract OCR
+Required for PNG and image-based PDF extraction.
+```bash
+brew install tesseract
 ```
 
-Install dependencies using `pip`:
+### Google Drive Folder
+- Create or identify a Drive folder containing CSV, TXT, PDF, or PNG files
+- Copy the folder ID from the URL:
+  `https://drive.google.com/drive/folders/YOUR_FOLDER_ID`
 
+---
+
+## Setup
+
+### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd File-Search-Service
+```
+
+### 2. Create a Virtual Environment
+```bash
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+```
+
+### 3. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-## Project Structure
-- `main.py`: FastAPI application entry point, initializes services and indexes files on startup.
-- `cli.py`: Command-line interface for searching indexed files.
-- `api/routes.py`: Defines the `/search` FastAPI endpoint.
-- `services/drive_client.py`: Handles Google Drive file retrieval and content download.
-- `services/indexer.py`: Manages Elasticsearch indexing and search.
-- `services/text_extractor.py`: Extracts text from files using `pdfplumber` and Tesseract.
-- `config/settings.py`: Configuration file for Google Drive and Elasticsearch settings.
-- `credentials.json`: Google Drive API credentials (not included in repository).
-- `token.json`: Generated OAuth token (created after authentication).
+### 4. Set Your Google Drive Folder ID
+Open `services/drive_client.py` and replace the placeholder:
+```python
+folder_id = "YOUR_FOLDER_ID_HERE"
+```
 
-## Setup Instructions
+### 5. Set Elasticsearch Credentials
+Export these environment variables before running the app:
+```bash
+export ELASTICSEARCH_HOST=https://localhost:9200
+export ELASTICSEARCH_USERNAME=elastic
+export ELASTICSEARCH_PASSWORD=your_password_here
+```
+> The password is printed in the terminal when you first start Elasticsearch. Add these exports to `~/.zshrc` or `~/.bashrc` to persist them across sessions.
 
-1. **Clone the Repository**:
-   ```bash
-   git clone <repository-url>
-   cd <repository-directory>
-   ```
+### 6. Authenticate with Google Drive
+On first run, the app will open a browser window for OAuth. After approving, `token.json` is saved and used for all future runs.
 
-2. **Set Up Virtual Environment**:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+---
 
-3. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Running
 
-4. **Configure Google Drive**:
-   - Place `credentials.json` in the project root.
-   - Update `services/drive_client.py` with your Google Drive folder ID:
-     ```python
-     folder_id = "your_folder_id_here"  # Replace with actual folder ID
-     ```
-   - Ensure the folder contains CSV, TXT, PDF, or PNG files.
+```bash
+source venv/bin/activate
+python main.py
+```
 
-5. **Configure Elasticsearch**:
-   - Ensure Elasticsearch is running on `https://localhost:9200`.
-   - Set credentials as environment variables:
-     ```bash
-     export ELASTICSEARCH_HOST=https://localhost:9200
-     export ELASTICSEARCH_USERNAME=elastic
-     export ELASTICSEARCH_PASSWORD=your_password_here
-     ```
+On startup, the service will:
+1. Authenticate with Google Drive
+2. Fetch and download all supported files from the configured folder
+3. Extract text and index each file into Elasticsearch
+4. Start the API server at `http://localhost:8000`
 
-6. **Authenticate with Google Drive**:
-   - Run `main.py` to initiate OAuth authentication:
-     ```bash
-     python main.py
-     ```
-   - Follow the browser prompt to authenticate and save the `token.json` file.
+Expected console output:
+```
+INFO:services.drive_client:Files retrieved from Google Drive:
+INFO:services.indexer:Indexed file: example.pdf
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+```
 
-## Running the Application
-1. Activate the virtual environment:
-   ```bash
-   source venv/bin/activate
-   ```
+---
 
-2. Start the FastAPI server:
-   ```bash
-   python main.py
-   ```
-   - The server runs on `http://0.0.0.0:8000`.
-   - On startup, it retrieves files from the specified Google Drive folder, extracts text, and indexes them in Elasticsearch.
-   - Console output will show:
-     ```
-     INFO:services.drive_client:Files retrieved from Google Drive:
-     INFO:services.indexer:Indexed file: ...
-     INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-     ```
+## Usage
 
-## Testing the Application
+### REST API
 
-### Using `curl`
-Test the search endpoint with `curl`. The URL must be quoted to avoid `zsh` globbing issues with the `?` character.
+Search via `curl` (always quote the URL to avoid `zsh` globbing issues):
+```bash
+curl "http://localhost:8000/search?q=Samsung"
+```
 
-- **Search for files containing "Samsung"**:
-  ```bash
-  curl "http://0.0.0.0:8000/search?q=Samsung"
-  ```
-  **Example Output**:
-  ```json
-  [
-      {"name": "Samsung.pdf", "url": "https://drive.google.com/file/d/1B7mTwFAg_M-zthC9SJ0uP1ArqOHLh3LV/view?usp=drivesdk"},
-      {"name": "Samsung and Google.txt", "url": "https://drive.google.com/file/d/1Z8cJoZMcaTiq4pR65GSHNkzMpdBttLpL/view?usp=drivesdk"},
-      {"name": "Galaxy S24.png", "url": "https://drive.google.com/file/d/1LKDIbIsWKUqeAYumKpalZtVy2dPP1HFW/view?usp=drivesdk"},
-      ...
-  ]
-  ```
+Example response:
+```json
+[
+  {"name": "Samsung.pdf", "url": "https://drive.google.com/file/d/.../view"},
+  {"name": "Samsung and Google.txt", "url": "https://drive.google.com/file/d/.../view"}
+]
+```
 
-- **Search for all files**:
-  ```bash
-  curl "http://0.0.0.0:8000/search?q=*"
-  ```
+### CLI
 
-- **Search for other terms** (e.g., "Iphone" or "Galaxy"):
-  ```bash
-  curl "http://0.0.0.0:8000/search?q=Iphone"
-  curl "http://0.0.0.0:8000/search?q=Galaxy"
-  ```
+```bash
+python cli.py "Samsung"
+```
 
-- **Alternative Host**:
-  If `0.0.0.0` doesn’t work, try `localhost`:
-  ```bash
-  curl "http://localhost:8000/search?q=Samsung"
-  ```
+Example output:
+```
+Samsung.pdf...https://drive.google.com/file/d/.../view
+Samsung and Google.txt...https://drive.google.com/file/d/.../view
+```
 
-- **Verbose Output for Debugging**:
-  ```bash
-  curl -v "http://0.0.0.0:8000/search?q=Samsung"
-  ```
+Returns `Empty` if no results are found.
 
-### Using Python CLI
-The CLI (`cli.py`) allows searching directly from the command line.
+### Swagger UI
 
-- **Search for files containing "Samsung"**:
-  ```bash
-  python cli.py "Samsung"
-  ```
-  **Example Output**:
-  ```
-  Samsung.pdf...https://drive.google.com/file/d/1B7mTwFAg_M-zthC9SJ0uP1ArqOHLh3LV/view?usp=drivesdk
-  Samsung and Google.txt...https://drive.google.com/file/d/1Z8cJoZMcaTiq4pR65GSHNkzMpdBttLpL/view?usp=drivesdk
-  Galaxy S24.png...https://drive.google.com/file/d/1LKDIbIsWKUqeAYumKpalZtVy2dPP1HFW/view?usp=drivesdk
-  ...
-  ```
+Interactive API docs available at `http://localhost:8000/docs`.
 
-- **Search for other terms**:
-  ```bash
-  python cli.py "Iphone"
-  python cli.py "Galaxy"
-  ```
-
-### Using Swagger UI
-Access the interactive API documentation:
-1. Open `http://localhost:8000/docs` in a browser.
-2. Use the `/search` endpoint to test queries (e.g., `q=Samsung`).
+---
 
 ## Troubleshooting
-- **Google Drive Authentication**:
-  - If authentication fails, delete `token.json` and rerun `python main.py` to re-authenticate.
-  - Ensure `credentials.json` is valid and the folder ID in `services/drive_client.py` is correct.
-- **Elasticsearch Connection**:
-  - Verify Elasticsearch is running:
-    ```bash
-    curl -u $ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD https://localhost:9200 --insecure
-    ```
-  - Check logs if indexing fails:
-    ```bash
-    cat /usr/local/var/log/elasticsearch/elasticsearch.log
-    ```
-- **Empty Search Results**:
-  - Check indexed files:
-    ```bash
-    curl -u $ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD https://localhost:9200/files/_search?pretty --insecure
-    ```
-  - Clear the index and re-run:
-    ```bash
-    curl -u $ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD -X DELETE https://localhost:9200/files --insecure
-    python main.py
-    ```
-- **PDF Content Not Searchable**:
-  - If PDFs are image-based, ensure `services/text_extractor.py` includes the OCR fallback (using Tesseract).
-  - Test extraction locally:
-    ```bash
-    python test_pdf_extraction.py Samsung.pdf
-    ```
-- **Curl Command Fails**:
-  - Use quotes around the URL to avoid `zsh` globbing:
-    ```bash
-    curl "http://0.0.0.0:8000/search?q=Samsung"
-    ```
-  - Check server logs for errors:
-    ```bash
-    python main.py
-    ```
+
+**Google Drive authentication fails**
+- Delete `token.json` and rerun `python main.py` to re-authenticate
+- Ensure `credentials.json` is present in the project root and the folder ID is correct
+
+**Cannot connect to Elasticsearch**
+- Verify it is running:
+  ```bash
+  curl -u $ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD https://localhost:9200 --insecure
+  ```
+- Check Elasticsearch logs:
+  ```bash
+  cat /usr/local/var/log/elasticsearch/elasticsearch.log
+  ```
+
+**Empty search results**
+- Confirm files were indexed:
+  ```bash
+  curl -u $ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD "https://localhost:9200/files/_search?pretty" --insecure
+  ```
+- Clear the index and re-index:
+  ```bash
+  curl -u $ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD -X DELETE https://localhost:9200/files --insecure
+  python main.py
+  ```
+
+**PDF content not searchable**
+- Ensure Tesseract is installed (`brew install tesseract`)
+- The service automatically falls back to OCR if `pdfplumber` extracts no text
+
+**`curl` command fails in zsh**
+- Always wrap the URL in double quotes:
+  ```bash
+  curl "http://localhost:8000/search?q=your_query"
+  ```
+
+---
 
 ## Notes
-- The application uses `verify_certs=False` for Elasticsearch, which generates `InsecureRequestWarning` messages. This is safe for local testing but should be addressed with proper SSL certificates in production.
-- Ensure Tesseract and `pdfplumber` are installed for PDF and PNG text extraction.
-- The search query matches file names and content case-insensitively with fuzzy matching.
+
+- `verify_certs=False` is used for the Elasticsearch connection — acceptable for local development, but use proper SSL certificates in production
+- The OAuth redirect during authentication runs on port `3000` — ensure this port is available on first run
