@@ -1,5 +1,7 @@
 # File Search Service
 
+> This project was built as part of an interview process.
+
 This project is a FastAPI-based application that retrieves files from a specified Google Drive folder, extracts text from supported file types (CSV, TXT, PDF, PNG), indexes them in Elasticsearch, and provides a search API to query the files by content or name. The application supports searching via a REST API (`/search` endpoint) and a command-line interface (CLI).
 
 ## Features
@@ -99,12 +101,12 @@ pip install -r requirements.txt
    - Ensure the folder contains CSV, TXT, PDF, or PNG files.
 
 5. **Configure Elasticsearch**:
-   - Ensure Elasticsearch is running on `https://localhost:9200` with username `elastic` and password `your_password_here`.
-   - Update `config/settings.py` if using a different host or credentials:
-     ```python
-     ELASTICSEARCH_HOST = "https://localhost:9200"
-     ELASTICSEARCH_USERNAME = "elastic"
-     ELASTICSEARCH_PASSWORD = "your_password_here"
+   - Ensure Elasticsearch is running on `https://localhost:9200`.
+   - Set credentials as environment variables:
+     ```bash
+     export ELASTICSEARCH_HOST=https://localhost:9200
+     export ELASTICSEARCH_USERNAME=elastic
+     export ELASTICSEARCH_PASSWORD=your_password_here
      ```
 
 6. **Authenticate with Google Drive**:
@@ -207,7 +209,7 @@ Access the interactive API documentation:
 - **Elasticsearch Connection**:
   - Verify Elasticsearch is running:
     ```bash
-    curl -u elastic:your_password_here https://localhost:9200 --insecure
+    curl -u $ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD https://localhost:9200 --insecure
     ```
   - Check logs if indexing fails:
     ```bash
@@ -216,11 +218,11 @@ Access the interactive API documentation:
 - **Empty Search Results**:
   - Check indexed files:
     ```bash
-    curl -u elastic:your_password_here https://localhost:9200/files/_search?pretty --insecure
+    curl -u $ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD https://localhost:9200/files/_search?pretty --insecure
     ```
   - Clear the index and re-run:
     ```bash
-    curl -u elastic:your_password_here -X DELETE https://localhost:9200/files --insecure
+    curl -u $ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD -X DELETE https://localhost:9200/files --insecure
     python main.py
     ```
 - **PDF Content Not Searchable**:

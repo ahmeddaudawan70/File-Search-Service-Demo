@@ -10,6 +10,9 @@ app = FastAPI(title="File Search Service")
 drive_client = DriveClient()
 indexer = Indexer()
 
+# Share indexer instance with routes via app state
+app.state.indexer = indexer
+
 # Include API routes
 app.include_router(router)
 
